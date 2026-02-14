@@ -55,10 +55,10 @@ Backend/
 3. **Set up environment variables**
    ```
    PORT=3000
-   MONGO_URI=mongodb+srv://mayankapi6:g58Rc8dB7OgwgfgD@trazex.vra1e.mongodb.net/
-   ADMIN_ID=trazex11admin@gmail.com
-   ADMIN_PASS=trazex11@98admin
-   JWT_SECRET=aviaznmqcqqwgjxr
+   MONGO_URI=url
+   ADMIN_ID=ID
+   ADMIN_PASS=PASSWORD
+   JWT_SECRET=SECRET_KEY
    NODE_ENV=development
    ```
 
