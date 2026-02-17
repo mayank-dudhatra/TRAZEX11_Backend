@@ -1,5 +1,41 @@
 const Wallet = require('../models/Wallet');
 
+// User: Get wallet summary
+const getWallet = async (req, res) => {
+  try {
+    let wallet = await Wallet.findOne({ userId: req.user.id }).lean();
+    if (!wallet) {
+      wallet = await Wallet.create({
+        userId: req.user.id,
+        balance: 0,
+        transactions: []
+      });
+      wallet = wallet.toObject();
+    }
+
+    const transactions = Array.isArray(wallet.transactions)
+      ? [...wallet.transactions].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        )
+      : [];
+
+    return res.json({
+      success: true,
+      data: {
+        balance: wallet.balance || 0,
+        transactions
+      }
+    });
+  } catch (error) {
+    console.error('Get wallet error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch wallet',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 // User: Top up wallet (dev helper)
 const topUpWallet = async (req, res) => {
   try {
@@ -48,5 +84,6 @@ const topUpWallet = async (req, res) => {
 };
 
 module.exports = {
+  getWallet,
   topUpWallet
 };
