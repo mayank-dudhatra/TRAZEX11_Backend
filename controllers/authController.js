@@ -2,6 +2,7 @@ const { validationResult } = require('express-validator');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Wallet = require('../models/Wallet');
 
 // Generate JWT token
 const generateToken = (payload) => {
@@ -45,6 +46,17 @@ const signUp = async (req, res) => {
     });
 
     await user.save();
+
+    // Create wallet with initial signup bonus
+    await Wallet.create({
+      userId: user._id,
+      balance: 5000,
+      transactions: [{
+        type: 'CREDIT',
+        amount: 5000,
+        reason: 'Signup bonus'
+      }]
+    });
 
     // Generate token
     const token = generateToken({

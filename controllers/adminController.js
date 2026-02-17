@@ -1,4 +1,7 @@
 const User = require('../models/User');
+const Contest = require('../models/Contest');
+const Leaderboard = require('../models/Leaderboard');
+const Wallet = require('../models/Wallet');
 
 // Get all users (Admin only)
 const getAllUsers = async (req, res) => {
@@ -176,10 +179,137 @@ const getDashboardStats = async (req, res) => {
   }
 };
 
+// Distribute prizes for a completed contest (Admin only)
+const distributeContestPrizes = async (req, res) => {
+  try {
+    const { contestId } = req.params;
+
+    // Find the contest
+    const contest = await Contest.findById(contestId);
+    if (!contest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Contest not found'
+      });
+    }
+
+    // Check if prizes already distributed
+    if (contest.isPrizeDistributed) {
+      return res.status(400).json({
+        success: false,
+        message: 'Prizes for this contest have already been distributed'
+      });
+    }
+
+    // Check if contest is completed
+    if (contest.status !== 'Completed') {
+      return res.status(400).json({
+        success: false,
+        message: 'Contest must be completed before distributing prizes'
+      });
+    }
+
+    // Get all leaderboard entries sorted by points
+    const leaderboardEntries = await Leaderboard.find({ contestId })
+      .sort({ points: -1 })
+      .populate('userId', 'username email');
+
+    if (leaderboardEntries.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'No participants found for this contest'
+      });
+    }
+
+    // Assign ranks and distribute prizes
+    const distributions = [];
+    let currentRank = 1;
+
+    for (let i = 0; i < leaderboardEntries.length; i++) {
+      const entry = leaderboardEntries[i];
+      
+      // Update rank
+      entry.rank = currentRank;
+      
+      // Find matching prize breakup for this rank
+      const prizeInfo = contest.prizeBreakup.find(
+        pb => currentRank >= pb.rankFrom && currentRank <= pb.rankTo
+      );
+
+      if (prizeInfo && prizeInfo.prizeEach > 0) {
+        // Credit prize to user wallet
+        let wallet = await Wallet.findOne({ userId: entry.userId._id });
+        
+        if (!wallet) {
+          // Create wallet if doesn't exist
+          wallet = await Wallet.create({
+            userId: entry.userId._id,
+            balance: 0,
+            transactions: []
+          });
+        }
+
+        wallet.balance += prizeInfo.prizeEach;
+        wallet.transactions.push({
+          type: 'CREDIT',
+          amount: prizeInfo.prizeEach,
+          reason: `Prize for Rank ${currentRank} in ${contest.name}`
+        });
+
+        await wallet.save();
+
+        // Update leaderboard with winning amount
+        entry.winningAmount = prizeInfo.prizeEach;
+        await entry.save();
+
+        distributions.push({
+          userId: entry.userId._id,
+          username: entry.userId.username,
+          rank: currentRank,
+          points: entry.points,
+          winningAmount: prizeInfo.prizeEach
+        });
+      } else {
+        // No prize for this rank, just save the rank
+        entry.winningAmount = 0;
+        await entry.save();
+      }
+
+      currentRank++;
+    }
+
+    // Mark contest as prize distributed
+    contest.isPrizeDistributed = true;
+    await contest.save();
+
+    res.json({
+      success: true,
+      message: 'Prizes distributed successfully',
+      data: {
+        contestId: contest._id,
+        contestName: contest.name,
+        totalParticipants: leaderboardEntries.length,
+        totalWinners: distributions.length,
+        totalPrizeDistributed: distributions.reduce((sum, d) => sum + d.winningAmount, 0),
+        distributions
+      }
+    });
+
+  } catch (error) {
+    console.error('Distribute prizes error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to distribute prizes',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
   updateUserStatus,
   deleteUser,
-  getDashboardStats
+  getDashboardStats,
+  distributeContestPrizes
 };

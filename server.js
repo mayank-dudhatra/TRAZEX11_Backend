@@ -4,8 +4,11 @@ const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
+const http = require('http');
+const socketIO = require('socket.io');
 const connectDB = require('./config/database');
 const errorHandler = require('./middleware/errorHandler');
+const LiveUpdateScheduler = require('./services/liveUpdateScheduler');
 
 // Import routes
 const authRoutes = require('./routes/auth');
@@ -14,11 +17,38 @@ const userRoutes = require('./routes/user');
 const contestRoutes = require('./routes/contest');
 const teamRoutes = require('./routes/team');
 const leaderboardRoutes = require('./routes/leaderboard');
+const stockRoutes = require('./routes/stocks');
+const walletRoutes = require('./routes/wallet');
 
 const app = express();
 
+// Create HTTP server for Socket.io
+const server = http.createServer(app);
+
+// Socket.io setup with CORS
+const io = socketIO(server, {
+  cors: {
+    origin: process.env.NODE_ENV === 'production'
+      ? ['https://your-admin-domain.com', 'https://your-app-domain.com']
+      : [
+          'http://localhost:3000',
+          'http://localhost:5173',
+          'http://localhost:5174',
+          'http://localhost:8081',
+        ],
+    credentials: true,
+    methods: ['GET', 'POST']
+  },
+  pingInterval: 60000,
+  pingTimeout: 60000
+});
+
+// Initialize live update scheduler
+const scheduler = new LiveUpdateScheduler(io);
+
 // Connect to MongoDB
-connectDB();
+const startServer = async () => {
+  await connectDB();
 
 // Security middleware
 app.use(helmet());
@@ -86,6 +116,55 @@ app.use('/api/user', userRoutes);
 app.use('/api/contests', contestRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/leaderboard', leaderboardRoutes);
+app.use('/api/stocks', stockRoutes);
+app.use('/api/wallet', walletRoutes);
+
+// Socket.io Connection Handlers
+io.on('connection', (socket) => {
+  console.log(`Client connected: ${socket.id}`);
+
+  socket.on('subscribe', (symbol) => {
+    if (!symbol) {
+      return;
+    }
+    socket.join(symbol);
+    console.log(`Client ${socket.id} subscribed to ${symbol}`);
+  });
+
+  socket.on('unsubscribe', (symbol) => {
+    if (!symbol) {
+      return;
+    }
+    socket.leave(symbol);
+    console.log(`Client ${socket.id} unsubscribed from ${symbol}`);
+  });
+
+  // Request market stats
+  socket.on('request:stats', async () => {
+    try {
+      const stats = await scheduler.getStats();
+      socket.emit('market:stats', {
+        data: stats,
+        timestamp: new Date()
+      });
+    } catch (error) {
+      console.error('Error sending stats:', error.message);
+    }
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', () => {
+    console.log(`Client disconnected: ${socket.id}`);
+  });
+
+  // Error handling
+  socket.on('error', (error) => {
+    console.error(`Socket error from ${socket.id}:`, error);
+  });
+});
+
+// Expose scheduler for use in other parts of the app (e.g., admin endpoints)
+app.locals.scheduler = scheduler;
 
 // 404 handler for API routes
 app.use('/api/*', (req, res) => {
@@ -129,12 +208,26 @@ process.on('uncaughtException', (err) => {
   process.exit(1);
 });
 
-const PORT = process.env.PORT || 3000;
+  const PORT = process.env.PORT || 3000;
 
-const server = app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT} in ${process.env.NODE_ENV} mode`);
-  console.log(`📊 Health check: http://localhost:${PORT}/health`);
-  console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+  server.listen(PORT, async () => {
+    console.log(`🚀 Server is running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+    console.log(`📊 Health check: http://localhost:${PORT}/health`);
+    console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+
+    // Start live update scheduler
+    try {
+      scheduler.start();
+      console.log('✅ Live stock update system initialized');
+    } catch (error) {
+      console.error('❌ Failed to start live update scheduler:', error.message);
+    }
+  });
+};
+
+startServer().catch((error) => {
+  console.error('❌ Failed to start server:', error.message);
+  process.exit(1);
 });
 
-module.exports = app;
+module.exports = { app, server, io, scheduler };

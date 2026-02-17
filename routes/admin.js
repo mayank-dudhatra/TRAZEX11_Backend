@@ -6,7 +6,8 @@ const {
   getUserById,
   updateUserStatus,
   deleteUser,
-  getDashboardStats
+  getDashboardStats,
+  distributeContestPrizes
 } = require('../controllers/adminController');
 const {
   createContest,
@@ -41,6 +42,11 @@ router.get('/contests', getContestsByDateRange);
 // @desc    Get contest details with leaderboard
 // @access  Private (Admin only)
 router.get('/contests/:id', getContestDetails);
+
+// @route   POST /api/admin/contests/:id/distribute-prizes
+// @desc    Distribute prizes to winners of a completed contest
+// @access  Private (Admin only)
+router.post('/contests/:contestId/distribute-prizes', distributeContestPrizes);
 
 // @route   POST /api/admin/date-contests
 // @desc    Create date contest card
