@@ -403,6 +403,65 @@ const joinContest = async (req, res) => {
   }
 };
 
+// User: Get joined contests for current user
+const getUserJoinedContests = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const contests = await Contest.find({ 'joinedTeams.userId': userId })
+      .sort({ contestStartTime: -1 })
+      .lean();
+
+    const formatted = contests.map((contest) => ({
+      ...contest,
+      status: computeContestStatus(contest),
+      userTeamsCount: (contest.joinedTeams || []).filter((entry) => (
+        entry.userId && entry.userId.toString() === userId.toString()
+      )).length
+    }));
+
+    res.json({
+      success: true,
+      contests: formatted
+    });
+  } catch (error) {
+    console.error('Get user joined contests error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch joined contests',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// User: Get teams for current user in a contest
+const getUserTeamsForContest = async (req, res) => {
+  try {
+    const { contestId } = req.params;
+    const userId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(contestId)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid contest id'
+      });
+    }
+
+    const teams = await Team.find({ contestId, userId }).lean();
+
+    res.json({
+      success: true,
+      teams
+    });
+  } catch (error) {
+    console.error('Get user teams error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch teams',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 // Admin: Get contests by date range
 const getContestsByDateRange = async (req, res) => {
   try {
@@ -503,6 +562,8 @@ module.exports = {
   createContest,
   getContestsByDateMarket,
   joinContest,
+  getUserJoinedContests,
+  getUserTeamsForContest,
   getContestsByDateRange,
   getContestDetails
 };
