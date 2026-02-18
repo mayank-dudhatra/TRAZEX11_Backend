@@ -74,7 +74,7 @@ const createContest = async (req, res) => {
     if (parsedEntryCloseTime >= parsedStartTime) {
       return res.status(400).json({
         success: false,
-        message: 'Entry close time must be before or equal to contest start time'
+        message: 'Entry close time must be before contest start time'
       });
     }
 
@@ -82,6 +82,56 @@ const createContest = async (req, res) => {
       return res.status(400).json({
         success: false,
         message: 'Contest end time must be after contest start time'
+      });
+    }
+
+    if (!Array.isArray(prizeBreakup) || prizeBreakup.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Prize breakup is required'
+      });
+    }
+
+    const normalizedPrizeBreakup = prizeBreakup.map((range, index) => {
+      const rankFrom = Number(range.rankFrom);
+      const rankTo = Number(range.rankTo);
+      const prizeEach = Number(range.prizeEach);
+
+      if (Number.isNaN(rankFrom) || Number.isNaN(rankTo) || Number.isNaN(prizeEach)) {
+        return { error: `Prize breakup row ${index + 1} has invalid values` };
+      }
+      if (rankFrom > rankTo) {
+        return { error: `Prize breakup row ${index + 1} must have rankFrom <= rankTo` };
+      }
+      if (prizeEach < 0) {
+        return { error: `Prize breakup row ${index + 1} must have prizeEach >= 0` };
+      }
+
+      const winners = rankTo - rankFrom + 1;
+      const totalPrize = winners * prizeEach;
+
+      return {
+        rankFrom,
+        rankTo,
+        winners,
+        prizeEach,
+        totalPrize
+      };
+    });
+
+    const prizeBreakupError = normalizedPrizeBreakup.find((range) => range.error);
+    if (prizeBreakupError) {
+      return res.status(400).json({
+        success: false,
+        message: prizeBreakupError.error
+      });
+    }
+
+    const totalPrizeAmount = normalizedPrizeBreakup.reduce((sum, range) => sum + range.totalPrize, 0);
+    if (Number(prizePool) !== totalPrizeAmount) {
+      return res.status(400).json({
+        success: false,
+        message: `Prize pool (${Number(prizePool)}) must match total prize breakup (${totalPrizeAmount})`
       });
     }
 
@@ -98,31 +148,7 @@ const createContest = async (req, res) => {
       totalSpots,
       maximumTeamPerUser,
       prizePool,
-      prizeBreakup: Array.isArray(prizeBreakup)
-        ? prizeBreakup.map((range) => {
-            const rankFrom = Number(range.rankFrom);
-            const rankTo = Number(range.rankTo);
-            const prizeEach = Number(range.prizeEach);
-            if (Number.isNaN(rankFrom) || Number.isNaN(rankTo) || Number.isNaN(prizeEach)) {
-              throw new Error('Invalid prize breakup values');
-            }
-            if (rankFrom > rankTo) {
-              throw new Error('Prize breakup rankFrom must be <= rankTo');
-            }
-            if (prizeEach < 0) {
-              throw new Error('Prize breakup prizeEach must be >= 0');
-            }
-            const winners = rankTo - rankFrom + 1;
-            const totalPrize = winners * prizeEach;
-            return {
-              rankFrom,
-              rankTo,
-              winners,
-              prizeEach,
-              totalPrize
-            };
-          })
-        : []
+      prizeBreakup: normalizedPrizeBreakup
     });
 
     res.status(201).json({
