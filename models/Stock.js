@@ -204,7 +204,27 @@ const stockSchema = new mongoose.Schema({
     default: 0
   },
 
+  dailyBuyBasePoints: {
+    type: Number,
+    default: 0
+  },
+
+  dailyBuyMilestonePoints: {
+    type: Number,
+    default: 0
+  },
+
   dailySellPoints: {
+    type: Number,
+    default: 0
+  },
+
+  dailySellBasePoints: {
+    type: Number,
+    default: 0
+  },
+
+  dailySellMilestonePoints: {
     type: Number,
     default: 0
   },

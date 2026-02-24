@@ -4,7 +4,11 @@ const stockService = require('../services/stockService');
 const withDailyScoringFields = (stock) => ({
   ...stock,
   dailyBuyPoints: stock.dailyBuyPoints ?? stock.buyPoints ?? 0,
+  dailyBuyBasePoints: stock.dailyBuyBasePoints ?? 0,
+  dailyBuyMilestonePoints: stock.dailyBuyMilestonePoints ?? 0,
   dailySellPoints: stock.dailySellPoints ?? stock.sellPoints ?? 0,
+  dailySellBasePoints: stock.dailySellBasePoints ?? 0,
+  dailySellMilestonePoints: stock.dailySellMilestonePoints ?? 0,
   dailyMilestonesHit: stock.dailyMilestonesHit ?? stock.dailyMilestones ?? {
     m2: false,
     m5: false,

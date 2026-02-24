@@ -65,50 +65,11 @@ function applyMilestones({
   return { milestoneBonus, updatedMilestoneFlags };
 }
 
-function applyDayHighLow({
-  ltp,
-  dayHigh,
-  dayLow,
-  userAction,
-  dayHighHit,
-  dayLowHit
-}) {
-  let nextDayHighHit = Boolean(dayHighHit);
-  let nextDayLowHit = Boolean(dayLowHit);
-
-  if (!nextDayHighHit && typeof dayHigh === 'number' && typeof ltp === 'number' && ltp >= dayHigh) {
-    nextDayHighHit = true;
-  }
-
-  if (!nextDayLowHit && typeof dayLow === 'number' && typeof ltp === 'number' && ltp <= dayLow) {
-    nextDayLowHit = true;
-  }
-
-  let dayHighLowBonus = 0;
-
-  if (nextDayHighHit) {
-    dayHighLowBonus += userAction === 'BUY' ? 20 : -10;
-  }
-
-  if (nextDayLowHit) {
-    dayHighLowBonus += userAction === 'SELL' ? 20 : -10;
-  }
-
-  return {
-    dayHighLowBonus,
-    dayHighHit: nextDayHighHit,
-    dayLowHit: nextDayLowHit
-  };
-}
-
 function calculateStockPoints(params) {
   const {
     percentChange = 0,
     previousPercent = 0,
     userAction,
-    dayHigh,
-    dayLow,
-    ltp,
     milestoneFlags = {},
     dayHighHit = false,
     dayLowHit = false
@@ -123,25 +84,15 @@ function calculateStockPoints(params) {
     milestoneFlags
   });
 
-  const dayHighLow = applyDayHighLow({
-    ltp,
-    dayHigh,
-    dayLow,
-    userAction,
-    dayHighHit,
-    dayLowHit
-  });
-
-  const totalPoints = baseMovementPoints + milestoneBonus + dayHighLow.dayHighLowBonus;
+  const totalPoints = baseMovementPoints + milestoneBonus;
 
   return {
     totalPoints,
     baseMovementPoints,
     milestoneBonus,
-    dayHighLowBonus: dayHighLow.dayHighLowBonus,
     updatedMilestoneFlags,
-    dayHighHit: dayHighLow.dayHighHit,
-    dayLowHit: dayHighLow.dayLowHit
+    dayHighHit: Boolean(dayHighHit),
+    dayLowHit: Boolean(dayLowHit)
   };
 }
 

@@ -51,7 +51,11 @@ class DailyStockScoringService {
               buyPoints: 0,
               sellPoints: 0,
               dailyBuyPoints: 0,
+              dailyBuyBasePoints: 0,
+              dailyBuyMilestonePoints: 0,
               dailySellPoints: 0,
+              dailySellBasePoints: 0,
+              dailySellMilestonePoints: 0,
               dailyBaseVolume: "$volume",
               dailyPreviousPercent: 0,
               lastDailyReset: now,
@@ -135,7 +139,11 @@ class DailyStockScoringService {
                   buyPoints: scoring.buyPoints,
                   sellPoints: scoring.sellPoints,
                   dailyBuyPoints: scoring.buyPoints,
+                  dailyBuyBasePoints: scoring.buyBasePoints,
+                  dailyBuyMilestonePoints: scoring.buyMilestonePoints,
                   dailySellPoints: scoring.sellPoints,
+                  dailySellBasePoints: scoring.sellBasePoints,
+                  dailySellMilestonePoints: scoring.sellMilestonePoints,
                   dailyMilestones: scoring.milestones,
                   dailyMilestonesHit: scoring.milestones,
                   percentChange: scoring.percentChange,
@@ -153,7 +161,7 @@ class DailyStockScoringService {
 
         if (io) {
           const freshStocks = await Stock.find({ symbol: { $in: updatedSymbols } })
-            .select("symbol name price change percentChange volume dailyBuyPoints dailySellPoints dailyMilestonesHit buyPoints sellPoints dailyMilestones")
+            .select("symbol name price change percentChange volume dailyBuyPoints dailyBuyBasePoints dailyBuyMilestonePoints dailySellPoints dailySellBasePoints dailySellMilestonePoints dailyMilestonesHit buyPoints sellPoints dailyMilestones")
             .lean();
 
           freshStocks.forEach((stock) => {
@@ -187,15 +195,15 @@ class DailyStockScoringService {
     const directionalPoints = Math.floor(Math.abs(percentChange) / 0.1);
 
     // Correct direction: +1 per unit; wrong direction: -0.5 per unit
-    let buyPoints = 0;
-    let sellPoints = 0;
+    let buyBasePoints = 0;
+    let sellBasePoints = 0;
 
     if (percentChange > 0) {
-      buyPoints = directionalPoints;
-      sellPoints = directionalPoints * -0.5;
+      buyBasePoints = directionalPoints;
+      sellBasePoints = directionalPoints * -0.5;
     } else if (percentChange < 0) {
-      sellPoints = directionalPoints;
-      buyPoints = directionalPoints * -0.5;
+      sellBasePoints = directionalPoints;
+      buyBasePoints = directionalPoints * -0.5;
     }
 
     const milestoneResult = this._applyMilestoneBonuses({
@@ -204,10 +212,14 @@ class DailyStockScoringService {
       milestoneSource: stock.dailyMilestonesHit || stock.dailyMilestones || {}
     });
 
-    buyPoints += milestoneResult.buyBonus;
-    sellPoints += milestoneResult.sellBonus;
+    const buyPoints = buyBasePoints + milestoneResult.buyBonus;
+    const sellPoints = sellBasePoints + milestoneResult.sellBonus;
 
     return {
+      buyBasePoints: Number(buyBasePoints.toFixed(2)),
+      sellBasePoints: Number(sellBasePoints.toFixed(2)),
+      buyMilestonePoints: Number(milestoneResult.buyBonus.toFixed(2)),
+      sellMilestonePoints: Number(milestoneResult.sellBonus.toFixed(2)),
       buyPoints: Number(buyPoints.toFixed(2)),
       sellPoints: Number(sellPoints.toFixed(2)),
       percentChange,
@@ -250,6 +262,16 @@ class DailyStockScoringService {
       }
     }
 
+    const cumulativeMilestoneBonus = this.MILESTONE_BONUSES.reduce((total, milestone) => {
+      return milestones[milestone.key] ? total + milestone.points : total;
+    }, 0);
+
+    if (percentChange > 0) {
+      buyBonus = cumulativeMilestoneBonus;
+    } else if (percentChange < 0) {
+      sellBonus = cumulativeMilestoneBonus;
+    }
+
     return {
       buyBonus,
       sellBonus,
@@ -281,7 +303,11 @@ class DailyStockScoringService {
         percentChange: percentChange.toFixed(2),
         directionalPoints,
         buyPoints: stock.dailyBuyPoints,
+        buyBasePoints: stock.dailyBuyBasePoints,
+        buyMilestonePoints: stock.dailyBuyMilestonePoints,
         sellPoints: stock.dailySellPoints,
+        sellBasePoints: stock.dailySellBasePoints,
+        sellMilestonePoints: stock.dailySellMilestonePoints,
         milestones: stock.dailyMilestonesHit,
         previousPercent: stock.dailyPreviousPercent
       };
