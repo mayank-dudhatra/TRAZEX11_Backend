@@ -192,6 +192,66 @@ const stockSchema = new mongoose.Schema({
     sparse: true
   },
 
+  // 🔹 Daily Stock Points System
+  basePrice: {
+    type: Number,
+    min: 0,
+    sparse: true
+  }, // 9:00 AM price for daily scoring
+
+  dailyBuyPoints: {
+    type: Number,
+    default: 0
+  },
+
+  dailySellPoints: {
+    type: Number,
+    default: 0
+  },
+
+  dailyMilestones: {
+    m2: { type: Boolean, default: false },  // 2% milestone
+    m5: { type: Boolean, default: false },  // 5% milestone
+    m10: { type: Boolean, default: false }, // 10% milestone
+    m15: { type: Boolean, default: false }, // 15% milestone
+    dayHigh: { type: Boolean, default: false },
+    dayLow: { type: Boolean, default: false },
+    volume2x: { type: Boolean, default: false },
+    volume3x: { type: Boolean, default: false }
+  },
+
+  dailyMilestonesHit: {
+    m2: { type: Boolean, default: false },
+    m5: { type: Boolean, default: false },
+    m10: { type: Boolean, default: false },
+    m15: { type: Boolean, default: false },
+    dayHigh: { type: Boolean, default: false },
+    dayLow: { type: Boolean, default: false },
+    volume2x: { type: Boolean, default: false },
+    volume3x: { type: Boolean, default: false }
+  },
+
+  dailyBaseVolume: {
+    type: Number,
+    min: 0,
+    sparse: true
+  }, // EMA volume for spike detection
+
+  lastDailyReset: {
+    type: Date,
+    sparse: true
+  },
+
+  lastResetDate: {
+    type: Date,
+    sparse: true
+  },
+
+  dailyPreviousPercent: {
+    type: Number,
+    default: 0
+  },
+
   // 🔹 Intraday Graph (Keep Last 100 entries, updated every 5-10 seconds)
   dailyGraph: {
     type: [pricePointSchema],

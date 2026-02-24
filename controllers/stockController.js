@@ -1,6 +1,23 @@
 const Stock = require('../models/Stock');
 const stockService = require('../services/stockService');
 
+const withDailyScoringFields = (stock) => ({
+  ...stock,
+  dailyBuyPoints: stock.dailyBuyPoints ?? stock.buyPoints ?? 0,
+  dailySellPoints: stock.dailySellPoints ?? stock.sellPoints ?? 0,
+  dailyMilestonesHit: stock.dailyMilestonesHit ?? stock.dailyMilestones ?? {
+    m2: false,
+    m5: false,
+    m10: false,
+    m15: false,
+    dayHigh: false,
+    dayLow: false,
+    volume2x: false,
+    volume3x: false
+  },
+  lastResetDate: stock.lastResetDate ?? stock.lastDailyReset ?? null
+});
+
 /**
  * Stock Controller
  * Handles stock-related API endpoints
@@ -27,7 +44,7 @@ const getAllStocks = async (req, res) => {
 
     res.json({
       success: true,
-      data: stocks,
+      data: stocks.map(withDailyScoringFields),
       pagination: {
         total,
         limit: parseInt(limit),
@@ -63,7 +80,7 @@ const getStockBySymbol = async (req, res) => {
 
     res.json({
       success: true,
-      data: stock
+      data: withDailyScoringFields(stock)
     });
   } catch (error) {
     console.error('Error getting stock:', error.message);
@@ -93,7 +110,7 @@ const getTopGainers = async (req, res) => {
 
     res.json({
       success: true,
-      data: gainers
+      data: gainers.map(withDailyScoringFields)
     });
   } catch (error) {
     console.error('Error getting top gainers:', error.message);
@@ -123,7 +140,7 @@ const getTopLosers = async (req, res) => {
 
     res.json({
       success: true,
-      data: losers
+      data: losers.map(withDailyScoringFields)
     });
   } catch (error) {
     console.error('Error getting top losers:', error.message);
@@ -153,7 +170,7 @@ const getMostActive = async (req, res) => {
 
     res.json({
       success: true,
-      data: active
+      data: active.map(withDailyScoringFields)
     });
   } catch (error) {
     console.error('Error getting most active:', error.message);
@@ -215,7 +232,7 @@ const searchStocks = async (req, res) => {
 
     res.json({
       success: true,
-      data: results,
+      data: results.map(withDailyScoringFields),
       count: results.length
     });
   } catch (error) {

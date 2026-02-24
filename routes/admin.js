@@ -7,7 +7,9 @@ const {
   updateUserStatus,
   deleteUser,
   getDashboardStats,
-  distributeContestPrizes
+  distributeContestPrizes,
+  resetDailyStockPoints,
+  getStockScoreBreakdown
 } = require('../controllers/adminController');
 const {
   createContest,
@@ -77,5 +79,15 @@ router.put('/users/:id/status', validateUpdateUserStatus, updateUserStatus);
 // @desc    Delete user
 // @access  Private (Admin only)
 router.delete('/users/:id', deleteUser);
+
+// @route   POST /api/admin/stocks/reset-daily-points
+// @desc    Reset daily stock points (for testing)
+// @access  Private (Admin only)
+router.post('/stocks/reset-daily-points', resetDailyStockPoints);
+
+// @route   GET /api/admin/stocks/:symbol/score-breakdown
+// @desc    Get detailed score breakdown for a stock
+// @access  Private (Admin only)
+router.get('/stocks/:symbol/score-breakdown', getStockScoreBreakdown);
 
 module.exports = router;

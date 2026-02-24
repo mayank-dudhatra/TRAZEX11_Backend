@@ -24,7 +24,8 @@ class StockService {
     this.DEFAULT_SYMBOLS = [...this.NSE_STOCKS, ...this.BSE_STOCKS];
   }
 
-  async updateActiveStocks(io, symbolsOverride = null) {
+  async updateActiveStocks(io, symbolsOverride = null, options = {}) {
+    const { emitRawUpdates = true } = options;
     let activeStocks = symbolsOverride && symbolsOverride.length
       ? await Stock.find({ symbol: { $in: symbolsOverride }, isActive: true })
         .select('symbol price')
@@ -55,6 +56,7 @@ class StockService {
     const priceMap = new Map(activeStocks.map((s) => [s.symbol, s.price]));
     const symbols = activeStocks.map((s) => s.symbol);
     const errors = [];
+    const changedStocksAll = [];
     let updated = 0;
 
     for (let i = 0; i < symbols.length; i += this.BATCH_SIZE) {
@@ -125,7 +127,11 @@ class StockService {
           await Stock.bulkWrite(bulkOps, { ordered: false });
         }
 
-        if (io && changedStocks.length) {
+        if (changedStocks.length) {
+          changedStocksAll.push(...changedStocks);
+        }
+
+        if (io && emitRawUpdates && changedStocks.length) {
           changedStocks.forEach((stock) => {
             io.to(stock.symbol).emit('stockUpdate', stock);
           });
@@ -135,7 +141,7 @@ class StockService {
       }
     }
 
-    return { updated, errors };
+    return { updated, errors, changedStocks: changedStocksAll };
   }
 
   async fetchStockQuote(symbol) {

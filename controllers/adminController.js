@@ -2,6 +2,7 @@ const User = require('../models/User');
 const Contest = require('../models/Contest');
 const Leaderboard = require('../models/Leaderboard');
 const Wallet = require('../models/Wallet');
+const dailyStockScoringService = require('../services/dailyStockScoringService');
 
 // Get all users (Admin only)
 const getAllUsers = async (req, res) => {
@@ -211,7 +212,7 @@ const distributeContestPrizes = async (req, res) => {
 
     // Get all leaderboard entries sorted by points
     const leaderboardEntries = await Leaderboard.find({ contestId })
-      .sort({ points: -1 })
+        .sort({ points: -1, updatedAt: 1 })
       .populate('userId', 'username email');
 
     if (leaderboardEntries.length === 0) {
@@ -305,11 +306,60 @@ const distributeContestPrizes = async (req, res) => {
   }
 };
 
+// Reset daily stock points (Admin only - for testing)
+const resetDailyStockPoints = async (req, res) => {
+  try {
+    const result = await dailyStockScoringService.resetDailyScores();
+    
+    res.json({
+      success: true,
+      message: 'Daily stock points reset successfully',
+      data: result
+    });
+  } catch (error) {
+    console.error('Reset daily stock points error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to reset daily stock points',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
+// Get stock score breakdown (Admin only - for debugging)
+const getStockScoreBreakdown = async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const breakdown = await dailyStockScoringService.getStockScoreBreakdown(symbol);
+    
+    if (!breakdown) {
+      return res.status(404).json({
+        success: false,
+        message: 'Stock not found or not initialized'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: breakdown
+    });
+  } catch (error) {
+    console.error('Get stock score breakdown error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get stock score breakdown',
+      error: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
+};
+
 module.exports = {
   getAllUsers,
   getUserById,
   updateUserStatus,
   deleteUser,
   getDashboardStats,
-  distributeContestPrizes
+  distributeContestPrizes,
+  resetDailyStockPoints,
+  getStockScoreBreakdown
 };
