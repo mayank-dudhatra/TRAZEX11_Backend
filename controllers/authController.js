@@ -11,6 +11,13 @@ const generateToken = (payload) => {
   });
 };
 
+const cookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+  maxAge: 7 * 24 * 60 * 60 * 1000,
+};
+
 // User Sign Up
 const signUp = async (req, res) => {
   try {
@@ -66,16 +73,12 @@ const signUp = async (req, res) => {
     });
 
     // Set httpOnly secure cookie
-    res.cookie('authToken', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
+    res.cookie('authToken', token, cookieOptions);
 
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
+      token,
       user: {
         id: user._id,
         username: user.username,
@@ -118,16 +121,12 @@ const login = async (req, res) => {
       });
 
       // Set httpOnly secure cookie
-      res.cookie('authToken', token, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'strict',
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-      });
+      res.cookie('authToken', token, cookieOptions);
 
       return res.json({
         success: true,
         message: 'Admin login successful',
+        token,
         user: {
           id: 'admin',
           email: process.env.ADMIN_ID,
@@ -174,16 +173,12 @@ const login = async (req, res) => {
     });
 
     // Set httpOnly secure cookie
-    res.cookie('authToken', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'strict',
-      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
+    res.cookie('authToken', token, cookieOptions);
 
     res.json({
       success: true,
       message: 'Login successful',
+      token,
       user: {
         id: user._id,
         username: user.username,
@@ -251,7 +246,7 @@ const logout = (req, res) => {
   res.clearCookie('authToken', {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
   });
   
   res.json({

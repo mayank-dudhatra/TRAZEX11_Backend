@@ -4,8 +4,13 @@ const User = require('../models/User');
 // General authentication middleware
 const authenticate = async (req, res, next) => {
   try {
-    // Read token from httpOnly cookie
-    const token = req.cookies.authToken;
+    const authHeader = req.headers.authorization || '';
+    const bearerToken = authHeader.startsWith('Bearer ')
+      ? authHeader.substring(7).trim()
+      : null;
+
+    // Read token from Authorization header first, then fallback to httpOnly cookie
+    const token = bearerToken || req.cookies.authToken;
 
     if (!token) {
       return res.status(401).json({
