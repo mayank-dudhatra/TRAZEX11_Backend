@@ -354,7 +354,11 @@ const joinContest = async (req, res) => {
       await session.abortTransaction();
       return res.status(400).json({
         success: false,
-        message: 'Insufficient wallet balance'
+        message: 'Insufficient wallet balance',
+        data: {
+          required: contest.entryFee,
+          available: wallet.balance
+        }
       });
     }
 
