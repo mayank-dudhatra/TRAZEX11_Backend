@@ -29,7 +29,7 @@ const server = http.createServer(app);
 const io = socketIO(server, {
   cors: {
     origin: process.env.NODE_ENV === 'production'
-      ? ['https://your-admin-domain.com', 'https://your-app-domain.com']
+      ? ['https://trazex11admin.vercel.app', 'https://trazex11.vercel.app']
       : [
           'http://localhost:3000',
           'http://localhost:5173',
@@ -79,7 +79,7 @@ app.use('/api/auth/signup', authLimiter);
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === 'production'
-    ? ['https://your-admin-domain.com', 'https://your-app-domain.com']
+    ? ['https://trazex11admin.vercel.app', 'https://trazex11.vercel.app']
     : [
         'http://localhost:3000',
         'http://localhost:5173',
