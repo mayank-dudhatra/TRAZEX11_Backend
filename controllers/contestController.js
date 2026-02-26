@@ -5,6 +5,8 @@ const Team = require('../models/Team');
 const User = require('../models/User');
 const Wallet = require('../models/Wallet');
 const Leaderboard = require('../models/Leaderboard');
+const TeamStockMilestone = require('../models/TeamStockMilestone');
+const Stock = require('../models/Stock');
 
 
 const computeContestStatus = (contest) => {
@@ -452,9 +454,81 @@ const getUserTeamsForContest = async (req, res) => {
 
     const teams = await Team.find({ contestId, userId }).lean();
 
+    if (!teams.length) {
+      return res.json({
+        success: true,
+        teams: []
+      });
+    }
+
+    const teamIds = teams.map((team) => team._id);
+    const milestones = await TeamStockMilestone.find({
+      contestId,
+      teamId: { $in: teamIds }
+    }).lean();
+
+    const milestoneMap = new Map(
+      milestones.map((doc) => [`${doc.teamId.toString()}::${doc.stockSymbol}`, doc])
+    );
+
+    const symbols = [...new Set(
+      teams.flatMap((team) => (team.stocks || []).map((stock) => stock.stockSymbol))
+    )];
+
+    const stockMeta = await Stock.find({ symbol: { $in: symbols } })
+      .select('symbol name image price')
+      .lean();
+
+    const stockMetaMap = new Map(stockMeta.map((stock) => [stock.symbol, stock]));
+
+    const teamsWithPoints = teams.map((team) => {
+      const captainSymbol = team.captain?.stockSymbol;
+      const viceCaptainSymbol = team.viceCaptain?.stockSymbol;
+
+      const stocksWithPoints = (team.stocks || []).map((stock) => {
+        const key = `${team._id.toString()}::${stock.stockSymbol}`;
+        const milestone = milestoneMap.get(key);
+        const rawPoints = Number(milestone?.lastComputedPoints || 0);
+
+        const multiplier = stock.stockSymbol === captainSymbol
+          ? 2
+          : stock.stockSymbol === viceCaptainSymbol
+            ? 1.5
+            : 1;
+
+        const stockPoints = Number((rawPoints * multiplier).toFixed(2));
+        const meta = stockMetaMap.get(stock.stockSymbol);
+
+        return {
+          ...stock,
+          name: meta?.name || stock.stockSymbol,
+          image: meta?.image || null,
+          currentPrice: Number(meta?.price || 0),
+          rawPoints: Number(rawPoints.toFixed(2)),
+          multiplier,
+          stockPoints
+        };
+      });
+
+      const calculatedTotalPoints = Number(
+        stocksWithPoints.reduce((sum, stock) => sum + Number(stock.stockPoints || 0), 0).toFixed(2)
+      );
+
+      const totalPoints = Number(
+        (Number(team.totalPoints) || calculatedTotalPoints || 0).toFixed(2)
+      );
+
+      return {
+        ...team,
+        stocks: stocksWithPoints,
+        calculatedTotalPoints,
+        totalPoints
+      };
+    });
+
     res.json({
       success: true,
-      teams
+      teams: teamsWithPoints
     });
   } catch (error) {
     console.error('Get user teams error:', error);

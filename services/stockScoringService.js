@@ -276,6 +276,33 @@ class StockScoringService {
       await Leaderboard.bulkWrite(leaderboardOps, { ordered: false });
     }
 
+    if (teamPointIncrements.size) {
+      const touchedTeamIds = [...teamPointIncrements.keys()];
+      const refreshedTeams = await Team.find({ _id: { $in: touchedTeamIds } })
+        .select('_id contestId userId totalPoints')
+        .lean();
+
+      if (refreshedTeams.length) {
+        const leaderboardSyncOps = refreshedTeams.map((team) => ({
+          updateOne: {
+            filter: {
+              contestId: team.contestId,
+              teamId: team._id
+            },
+            update: {
+              $set: {
+                points: Number(team.totalPoints || 0),
+                userId: team.userId
+              }
+            },
+            upsert: true
+          }
+        }));
+
+        await Leaderboard.bulkWrite(leaderboardSyncOps, { ordered: false });
+      }
+    }
+
     if (contestIdsTouched.size) {
       await this._updateLeaderboardRanks([...contestIdsTouched]);
     }

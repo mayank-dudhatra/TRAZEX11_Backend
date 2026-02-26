@@ -1,0 +1,27 @@
+services:
+  mongodb:
+    image: mongo:7
+    container_name: trazex_mongodb
+    restart: always
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+
+  backend:
+    build: .
+    container_name: trazex_backend
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGO_URI=mongodb+srv://mayankdudhatracg_db_user:rzn2UzMrjxFeLXV7@cluster0.xay6otn.mongodb.net/
+      - JWT_SECRET=aviaznmqcqqwgjxr
+      - ADMIN_ID=trazex11admin@gmail.com
+      - ADMIN_PASS=trazex11@98admin
+    command: npm start
+
+volumes:
+  mongo_data:
